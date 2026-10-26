@@ -31,6 +31,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
 .card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:12px;margin-bottom:12px}
 .cam{position:relative;aspect-ratio:1/1;background:#000;border-radius:10px;overflow:hidden}
 .cam video{width:100%;height:100%;object-fit:cover}
+[hidden]{display:none!important}
 .cam .frame{position:absolute;inset:18%;border:3px solid var(--gold);border-radius:12px;pointer-events:none}
 .cam p{position:absolute;inset:0;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:20px}
 .btn{width:100%;padding:13px;border:0;border-radius:6px;background:var(--accent);color:var(--on-accent);font:400 18px Anton,Impact,sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-top:10px}
@@ -123,6 +124,7 @@ small,.hint{color:var(--mute)}
 </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -178,14 +180,21 @@ let stream=null,last="",lastT=0;const cv=document.createElement("canvas"),cx=cv.
 $("camBtn").onclick=async()=>{
 if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;$("vid").srcObject=null;$("camBtn").textContent="Start camera";$("camMsg").hidden=false;$("camMsg").textContent="Camera is off";$("frame").hidden=true;return}
 try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
-$("vid").srcObject=stream;await $("vid").play();$("camMsg").hidden=true;$("frame").hidden=false;$("camBtn").textContent="Stop camera";loop()}
+$("vid").srcObject=stream;await $("vid").play();$("camMsg").hidden=true;$("frame").hidden=false;$("camBtn").textContent="Stop camera";show((window.BarcodeDetector||window.jsQR)?{c:"",h:"Scanning…",m:"Hold the QR code inside the yellow frame."}:{c:"bad",h:"Scanner didn’t load",m:"Check your internet connection and reload this page."});loop()}
 catch(e){$("camMsg").hidden=false;$("camMsg").textContent="Camera blocked. Allow camera access, or open this page’s link in your browser. You can still type bib numbers below."}};
-function loop(){if(!stream)return;const v=$("vid");
-if(v.readyState>=2&&v.videoWidth){const w=480,h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);
-const c=window.jsQR&&jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:"dontInvert"});
-if(c&&c.data){const m=/^BYU-(\d+)$/.exec(c.data.trim());const now=Date.now();
-if(m&&(m[1]!==last||now-lastT>4000)){last=m[1];lastT=now;show(record(m[1]))}}}
-requestAnimationFrame(loop)}
+let BD=null,busy=false;try{BD=window.BarcodeDetector?new BarcodeDetector({formats:["qr_code"]}):null}catch(e){}
+async function decode(v){
+if(BD){try{const a=await BD.detect(v);if(a.length)return a[0].rawValue}catch(e){}}
+if(window.jsQR){const w=640,h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);
+const c=jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:"attemptBoth"});if(c&&c.data)return c.data}
+return null}
+async function loop(){if(!stream)return;const v=$("vid");
+if(v.readyState>=2&&v.videoWidth&&!busy){busy=true;
+try{const raw=await decode(v);if(raw){const m=/^BYU-(\d+)$/.exec(raw.trim()),now=Date.now();
+if(m){if(m[1]!==last||now-lastT>4000){last=m[1];lastT=now;show(record(m[1]))}}
+else if(now-lastT>2500){lastT=now;show({c:"warn",h:"Not a bib code",m:"That QR code isn’t one of the BYU bibs."})}}}catch(e){}
+busy=false}
+setTimeout(()=>requestAnimationFrame(loop),120)}
 
 // standings
 function board(){const rows=Object.entries(S.runners).map(([b,r])=>({b:+b,r,l:r.laps.length,t:r.laps.length?r.laps[r.laps.length-1].t:0}))
