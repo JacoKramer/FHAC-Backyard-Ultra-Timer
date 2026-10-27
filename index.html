@@ -163,7 +163,7 @@ const dur=ms=>{const s=Math.round(ms/1000);return (s>=3600?Math.floor(s/3600)+":
 const nm=b=>(S.names[b-1]||"").trim();
 
 // online database (Firebase Realtime Database, REST)
-const DBKEY="byu-db",SENTKEY="byu-sent",DB_URL="";
+const DBKEY="byu-db",SENTKEY="byu-sent",DB_URL="https://fhac-backyard-ultra-default-rtdb.europe-west1.firebasedatabase.app";
 const trimU=u=>{u=(u||"").trim();while(u.endsWith("/"))u=u.slice(0,-1);return u};
 let DB=trimU(DB_URL),sent=null,pend=0,lastOk=0,err="",kt=null;
 try{DB=trimU(localStorage.getItem(DBKEY)||DB_URL);const x=localStorage.getItem(SENTKEY);if(x)sent=JSON.parse(x)}catch(e){}
